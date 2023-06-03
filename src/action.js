@@ -1,45 +1,50 @@
 import line from '@line/bot-sdk';
+import { getFlexMessageContent, getVideoMessageContent, getImageMessageContent, defaultLastStep } from './messageContent.js';
 
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 };
+
 const client = new line.Client(config);
 
+//處理message，開始教學流程
 export const messageHandler = (message, replyToken) => {
   if(message.type !== 'text') return Promise.resolve(null);
-
-  //RegularExpression , if message.text don't contains keyword , return null
+  //RegularExpression , if message.text don't contains keyword , return null 
+  //用正規表達式來判斷是否包含關鍵字，如果沒有包含關鍵字，就不回傳訊息
   const patten = new RegExp('教學|保單');
   if(!patten.test(message.text)) {
     return Promise.resolve(null);
   }
-  return replyMessageAction(1, replyToken); //傳訊息拉出去共用
+  return replyMessageAction(1, replyToken); //第一部會固定傳入1
 }
 
-///這邊還沒用到
+//處理postback，下一步或中斷教學
 export const postbackHandler = (postback, replyToken) => {
-  console.log(postback);
-  //const echo = { type: 'text', text: postback };
-  //return client.replyMessage(event.replyToken, echo);
+  const params = new URLSearchParams(postback.data);
+  switch(params.get('action')) {
+    case 'continue':
+      return replyMessageAction(parseInt(params.get('itemid')), replyToken);
+    case 'break':
+      return client.replyMessage(replyToken, { type: 'text', text: '感謝您，教學已中斷。' });
+    default:
+      return client.replyMessage(replyToken, { type: 'text', text: '發生錯誤，請稍後再試。' });
+  }
 }
 
-
-//這一部分傳送影片,圖片訊息有問題
 const replyMessageAction = (step, replyToken) => {
-  //第一步
-  if(step === 1) {
-    //影片的範例 無法讀取
-    client.replyMessage(replyToken, {
-      type: 'video',
-      originalContentUrl: 'https://www.youtube.com/shorts/RnKdlQDn6uA.mp4',
-      previewImageUrl: 'https://www.sample-videos.com/img/Sample-jpg-image-50kb.jpg'
-    });
-    //圖片的範例 會死圖
-    // client.replyMessage(replyToken, {
-    //   type: 'image',
-    //   originalContentUrl: 'https://www.sample-videos.com/img/Sample-jpg-image-200kb.jpg',
-    //   previewImageUrl: 'https://www.sample-videos.com/img/Sample-jpg-image-50kb.jpg'
-    // });
+  //最後一步時，回傳文字訊息
+  if(step === defaultLastStep) {
+    return client.replyMessage(replyToken, { type: 'text', text: '感謝您，教學已結束。' });
   }
+  const flexMessage = getFlexMessageContent(step);
+  const videoMessage = getVideoMessageContent(step);
+  const imageMessage = getImageMessageContent(step);
+  //訊息
+  client.replyMessage(replyToken, [
+    videoMessage,
+    imageMessage,
+    flexMessage      
+  ]);
 }
