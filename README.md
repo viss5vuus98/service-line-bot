@@ -1,6 +1,6 @@
 # LineBot_Service_NodeJS
 
-A LINE bot to customer service
+LINE bot to customer service
 Base on Node.js
 ## How to use
 
